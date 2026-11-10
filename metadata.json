@@ -1,0 +1,6 @@
+{
+  "name": "Liquid Search",
+  "description": "Liquid glass search interface with San Francisco skyline photo depth effect and quick app links.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

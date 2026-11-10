@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Liquid Search</title>
+  <meta name="description" content="Liquid glass search interface with San Francisco skyline photo depth effect and quick app links.">
+  <meta property="og:title" content="Liquid Search">
+  <meta property="og:description" content="Liquid glass search interface with San Francisco skyline photo depth effect and quick app links.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Google Fonts: Anton (heavy condensed title) and Montserrat (search & pills) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* -------------------------------------------------------------
+       NON-NEGOTIABLE FIXED VIEWPORT RULES (iPhone Browser Target)
+       ------------------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+      touch-action: none;
+      background: #000000;
+      color: #ffffff;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* -------------------------------------------------------------
+       CORNER EFFECTS
+       Soft frosted glow ONLY in top-left and bottom-right corners.
+       Positioned at z-index 1 so they never alter the photo's edges.
+       ------------------------------------------------------------- */
+    .corner-glow-tl {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 40vw;
+      height: 35dvh;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(ellipse at 0% 14%, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.18) 38%, transparent 72%);
+      filter: blur(24px);
+      -webkit-filter: blur(24px);
+    }
+
+    .corner-glow-br {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 48vw;
+      height: 30dvh;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(circle at 94% 94%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.14) 42%, transparent 76%);
+      filter: blur(30px);
+      -webkit-filter: blur(30px);
+    }
+
+    /* -------------------------------------------------------------
+       LAYER 2: SOLID TITLE "SEARCH"
+       Touches top edge and both side edges (100vw).
+       Scaled via JS to fit 100vw exactly and reach ~50% screen height.
+       ------------------------------------------------------------- */
+    .title-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100dvh;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .title-solid-layer {
+      z-index: 2;
+    }
+
+    .title-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      font-family: 'Anton', sans-serif;
+      font-weight: 900;
+      font-size: 100px; /* Reference base size */
+      text-transform: uppercase;
+      line-height: 0.82;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      display: inline-block;
+      transform-origin: 0 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #solid-title {
+      color: #ffffff;
+      /* Pure solid white, no shadow, no glow, no outline */
+      text-shadow: none;
+    }
+
+    /* -------------------------------------------------------------
+       LAYER 3: PHOTO CARD
+       Sharp, hard-cut edges, visible black margins around it.
+       Overlaps lower part of the title.
+       ------------------------------------------------------------- */
+    :root {
+      --card-top: 36.5dvh;
+      --card-left: 6.2vw;
+      --card-right: 6.2vw;
+      --card-bottom: 6.8vw;
+      --card-radius: clamp(14px, 2.2vw, 18px);
+    }
+
+    #photo-card {
+      position: absolute;
+      top: var(--card-top);
+      left: var(--card-left);
+      right: var(--card-right);
+      bottom: var(--card-bottom);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      z-index: 3;
+      background: #000000;
+      box-shadow: none;
+    }
+
+    #photo-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 26%;
+      display: block;
+      filter: contrast(1.08) saturate(1.15) brightness(0.98);
+      /* Hard-cut edges, no feathering, no masks */
+    }
+
+    /* -------------------------------------------------------------
+       LAYER 4: OUTLINE-ONLY TITLE "SEARCH" (DEPTH EFFECT)
+       Clipped precisely to the photo card rectangle.
+       Delicate, crisp white stroke matching reference.
+       ------------------------------------------------------------- */
+    .title-outline-layer {
+      z-index: 4;
+      pointer-events: none;
+      /* clip-path dynamically updated in JS to match photo-card bounds */
+      clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round var(--card-radius));
+      -webkit-clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round var(--card-radius));
+    }
+
+    #outline-title {
+      color: transparent;
+      -webkit-text-stroke: 0.26px rgba(255, 255, 255, 0.78);
+    }
+
+    /* -------------------------------------------------------------
+       LAYER 5: LIQUID GLASS UI (Search Bar & Pills)
+       Apple-style glass with multi-pass blur, saturation, specular
+       rim highlights, inner bevels, and optical flare.
+       License: MIT (Apple Glassmorphism UI & WebKit Optical Specular)
+       ------------------------------------------------------------- */
+    .ui-container {
+      position: absolute;
+      left: 9.2vw;
+      right: 9.2vw;
+      bottom: calc(var(--card-bottom) + clamp(26px, 4.2dvh, 38px));
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(10px, 1.4dvh, 13px);
+      pointer-events: auto;
+    }
+
+    /* Glass pill base styling */
+    .liquid-glass {
+      position: relative;
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.28) 0%,
+        rgba(255, 255, 255, 0.10) 38%,
+        rgba(255, 255, 255, 0.05) 68%,
+        rgba(255, 255, 255, 0.20) 100%
+      );
+      -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.15);
+      backdrop-filter: blur(28px) saturate(200%) brightness(1.15);
+      border: 1px solid rgba(255, 255, 255, 0.44);
+      box-shadow:
+        inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.88),
+        inset 0 -1px 2px 0 rgba(0, 0, 0, 0.3),
+        0 8px 32px 0 rgba(0, 0, 0, 0.42);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    /* Chromium enhancement with SVG displacement map if supported */
+    @supports (backdrop-filter: url(#liquid-refraction)) {
+      .liquid-glass {
+        backdrop-filter: url(#liquid-refraction) blur(28px) saturate(200%) brightness(1.15);
+      }
+    }
+
+    /* -------------------------------------------------------------
+       SEARCH BAR
+       ------------------------------------------------------------- */
+    .search-bar-wrap {
+      width: 100%;
+      height: clamp(50px, 6.4dvh, 56px);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+    }
+
+    /* Specular rim flare matching reference on upper-right rim */
+    .search-bar-wrap::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      right: 16px;
+      width: 95px;
+      height: 5px;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.6) 45%, transparent 80%);
+      filter: blur(1.5px);
+      -webkit-filter: blur(1.5px);
+      pointer-events: none;
+    }
+
+    .search-bar-wrap::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      right: 24px;
+      width: 80px;
+      height: 30px;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.48) 0%, rgba(255, 255, 255, 0.16) 45%, transparent 75%);
+      filter: blur(6px);
+      -webkit-filter: blur(6px);
+      pointer-events: none;
+    }
+
+    .search-form {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 2;
+    }
+
+    .search-icon-svg {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      margin-right: 12px;
+      opacity: 0.95;
+    }
+
+    .search-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 17px; /* >= 16px to prevent iOS auto-zoom */
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .search-input::placeholder {
+      color: rgba(255, 255, 255, 0.88);
+      font-weight: 500;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    /* -------------------------------------------------------------
+       QUICK APP PILLS (Spotify, YouTube, TikTok, Apple)
+       ------------------------------------------------------------- */
+    .pills-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: clamp(5px, 1.2vw, 8px);
+      width: 100%;
+    }
+
+    .pill-link {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: clamp(34px, 4.3dvh, 40px);
+      padding: 0 clamp(6px, 1.6vw, 11px);
+      text-decoration: none;
+      color: #ffffff;
+      transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
+      cursor: pointer;
+    }
+
+    .pill-link:active {
+      transform: scale(0.95);
+      opacity: 0.82;
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.38) 0%,
+        rgba(255, 255, 255, 0.14) 50%,
+        rgba(255, 255, 255, 0.24) 100%
+      );
+    }
+
+    .pill-icon {
+      flex-shrink: 0;
+      width: 15px;
+      height: 15px;
+      fill: #ffffff;
+    }
+
+    .pill-label {
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(11.5px, 2.9vw, 13px);
+      font-weight: 500;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+
+    /* Hidden SVG filter definitions for browsers supporting backdrop-filter: url() */
+    .svg-def {
+      position: absolute;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background SVG Filter for optical displacement refraction -->
+  <svg class="svg-def" aria-hidden="true">
+    <filter id="liquid-refraction" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
+
+  <!-- CORNER EFFECTS: Soft blurred white frosted glow ONLY in TL and BR corners -->
+  <div class="corner-glow-tl" aria-hidden="true"></div>
+  <div class="corner-glow-br" aria-hidden="true"></div>
+
+  <!-- LAYER 2: SOLID WHITE "SEARCH" TITLE (BEHIND PHOTO CARD) -->
+  <div class="title-layer title-solid-layer" aria-hidden="true">
+    <span id="solid-title" class="title-text">SEARCH</span>
+  </div>
+
+  <!-- LAYER 3: PHOTO CARD (San Francisco sunset skyline) -->
+  <div id="photo-card" role="region" aria-label="San Francisco Skyline">
+    <img id="photo-img" src="https://images.unsplash.com/photo-1791666030417-bc8004b164c8?auto=format&fit=crop&w=1200&q=80" alt="San Francisco skyline at sunset across the bay" loading="eager">
+  </div>
+
+  <!-- LAYER 4: OUTLINE-ONLY "SEARCH" TITLE (CLIPPED TO PHOTO CARD) -->
+  <div id="outline-title-container" class="title-layer title-outline-layer" aria-hidden="true">
+    <span id="outline-title" class="title-text">SEARCH</span>
+  </div>
+
+  <!-- LAYER 5: LIQUID GLASS SEARCH BAR & QUICK PILLS -->
+  <div class="ui-container">
+    <!-- Search Bar -->
+    <div class="liquid-glass search-bar-wrap">
+      <form id="search-form" class="search-form" action="https://www.google.com/search" method="GET" target="_self">
+        <!-- Lucide Search Icon (inline white stroke SVG) -->
+        <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          id="search-input"
+          class="search-input"
+          type="text"
+          name="q"
+          placeholder="Search"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          required
+          aria-label="Search query"
+        >
+      </form>
+    </div>
+
+    <!-- Pills Row: Spotify, YouTube, TikTok, Apple -->
+    <nav class="pills-row" aria-label="Quick links">
+      <!-- Spotify -->
+      <a class="liquid-glass pill-link" href="https://open.spotify.com" target="_self" aria-label="Spotify">
+        <svg class="pill-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.307c-.218.358-.682.474-1.04.256-2.855-1.745-6.449-2.14-10.682-1.173-.41.094-.816-.16-.91-.57-.094-.41.16-.816.57-.91 4.636-1.06 8.604-.613 11.806 1.343.358.218.474.682.256 1.054zm1.47-3.26c-.275.448-.86.59-1.308.315-3.268-2.008-8.25-2.59-12.115-1.417-.503.153-1.037-.134-1.19-.637-.153-.503.134-1.037.637-1.19 4.417-1.34 9.907-.693 13.66 1.62.448.276.59.86.316 1.31zm.126-3.41c-3.918-2.327-10.375-2.542-14.116-1.406-.603.183-1.242-.164-1.425-.767-.183-.603.164-1.242.767-1.425 4.303-1.306 11.43-1.054 15.932 1.618.543.322.723 1.025.401 1.568-.322.543-1.025.723-1.568.401z"/>
+        </svg>
+        <span class="pill-label">Spotify</span>
+      </a>
+
+      <!-- YouTube -->
+      <a class="liquid-glass pill-link" href="https://www.youtube.com" target="_self" aria-label="YouTube">
+        <svg class="pill-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+        <span class="pill-label">YouTube</span>
+      </a>
+
+      <!-- TikTok -->
+      <a class="liquid-glass pill-link" href="https://www.tiktok.com" target="_self" aria-label="TikTok">
+        <svg class="pill-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.97v7.24c0 1.94-.48 3.86-1.49 5.48-1.08 1.71-2.73 3.04-4.66 3.69-1.92.65-4.04.48-5.85-.45-1.81-.93-3.23-2.55-3.91-4.49-.68-1.94-.49-4.13.5-5.91 1-1.78 2.69-3.09 4.68-3.66.93-.26 1.9-.35 2.87-.26v4.13c-.63-.16-1.3-.15-1.92.05-.72.22-1.34.72-1.71 1.36-.37.64-.44 1.43-.2 2.13.23.7.77 1.27 1.44 1.55.67.29 1.44.25 2.08-.09.64-.34 1.07-.97 1.16-1.69.04-.32.05-.65.05-.98V.02z"/>
+        </svg>
+        <span class="pill-label">TikTok</span>
+      </a>
+
+      <!-- Apple -->
+      <a class="liquid-glass pill-link" href="https://www.apple.com" target="_self" aria-label="Apple">
+        <svg class="pill-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.61-.75 1.04-1.8 0.92-2.85-.9.04-2 .6-2.65 1.35-.58.67-1.08 1.74-.95 2.78 1.01.08 2.06-.52 2.68-1.28z"/>
+        </svg>
+        <span class="pill-label">Apple</span>
+      </a>
+    </nav>
+  </div>
+
+  <script>
+    /* =============================================================
+       PHOTO BACKGROUND CONFIGURATION
+       To change the photo, replace the BG_URL value below:
+       ============================================================= */
+    const BG_URL = "https://images.unsplash.com/photo-1791666030417-bc8004b164c8?auto=format&fit=crop&w=1200&q=80";
+
+    // Set photo image source from BG_URL constant
+    const photoImg = document.getElementById('photo-img');
+    if (photoImg && BG_URL) {
+      photoImg.src = BG_URL;
+    }
+
+    /* =============================================================
+       TITLE GEOMETRY & EXACT EDGE-TO-EDGE SCALING (100vw x ~50.5dvh)
+       Synchronizes solid title and outline title with 0px discrepancy.
+       ============================================================= */
+    function syncTitleGeometry() {
+      const solidTitle = document.getElementById('solid-title');
+      const outlineTitle = document.getElementById('outline-title');
+      const outlineContainer = document.getElementById('outline-title-container');
+      const photoCard = document.getElementById('photo-card');
+
+      if (!solidTitle || !outlineTitle || !photoCard || !outlineContainer) return;
+
+      // Temporarily clear transform on solid title to measure unscaled reference bounds
+      solidTitle.style.transform = 'none';
+
+      const rect = solidTitle.getBoundingClientRect();
+      const naturalWidth = rect.width;
+      const naturalHeight = rect.height;
+
+      if (naturalWidth <= 0 || naturalHeight <= 0) return;
+
+      // Width spans exactly 100vw from edge to edge
+      const targetWidth = window.innerWidth;
+      // Stretches vertically so it runs down to ~50.5% of viewport height
+      const targetHeight = window.innerHeight * 0.505;
+
+      const scaleX = targetWidth / naturalWidth;
+      const scaleY = targetHeight / naturalHeight;
+      const transformRule = 'scale(' + scaleX + ', ' + scaleY + ')';
+
+      solidTitle.style.transform = transformRule;
+      outlineTitle.style.transform = transformRule;
+
+      // Synchronize clip-path on outline container to match photoCard exactly
+      const cardRect = photoCard.getBoundingClientRect();
+      const topInset = Math.max(0, Math.round(cardRect.top));
+      const rightInset = Math.max(0, Math.round(window.innerWidth - cardRect.right));
+      const bottomInset = Math.max(0, Math.round(window.innerHeight - cardRect.bottom));
+      const leftInset = Math.max(0, Math.round(cardRect.left));
+      const computedRadius = window.getComputedStyle(photoCard).borderRadius || '16px';
+
+      const clipRule = 'inset(' + topInset + 'px ' + rightInset + 'px ' + bottomInset + 'px ' + leftInset + 'px round ' + computedRadius + ')';
+      outlineContainer.style.clipPath = clipRule;
+      outlineContainer.style.webkitClipPath = clipRule;
+    }
+
+    // Font ready check + window event listeners
+    if (document.fonts) {
+      document.fonts.ready.then(() => {
+        syncTitleGeometry();
+        // Run after next frame to handle any subpixel layout settlement
+        requestAnimationFrame(syncTitleGeometry);
+      });
+    }
+    window.addEventListener('load', syncTitleGeometry);
+    window.addEventListener('resize', syncTitleGeometry);
+    window.addEventListener('orientationchange', syncTitleGeometry);
+
+    // Initial calculation call
+    syncTitleGeometry();
+
+    /* =============================================================
+       SEARCH FORM SUBMISSION
+       Navigates to https://www.google.com/search?q= + encoded query
+       ============================================================= */
+    const searchForm = document.getElementById('search-form');
+    const searchInput = document.getElementById('search-input');
+
+    if (searchForm && searchInput) {
+      searchForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+        if (query) {
+          window.location.href = "https://www.google.com/search?q=" + encodeURIComponent(query);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
